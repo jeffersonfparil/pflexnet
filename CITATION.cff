@@ -4,12 +4,6 @@ authors:
 - family-names: "Paril"
   given-names: "Jefferson"
   orcid: " https://orcid.org/0000-0002-5693-4123"
-- family-names: "Staite"
-  given-names: "Seamus"
-  orcid: " https://orcid.org/????"
-  - family-names: "Gibbs"
-  given-names: "Patrick"
-  orcid: " https://orcid.org/????"
 title: "portho"
 version: 0.0.1
 date-released: 2023-06-20
