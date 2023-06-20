@@ -1,0 +1,24 @@
+[package]
+name = "portho"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ndarray = { version = "0.15.6", features = ["rayon"]}
+ndarray-linalg = "0.16.0"
+# ndarray-linalg = { version = "0.16.0", features = ["openblas"] }
+# ndarray-linalg = { version = "0.16.0", features = ["intel-mkl-static"] }
+# ndarray-linalg = { version = "0.16.0", features = ["netlib-static"] }
+rayon = "1.7.0"
+rand = "0.8.5"
+# statrs = "0.16.0"
+# argmin = "0.8.1"
+# argmin-math = "0.3.0"
+# function_name = "0.3.0"
+# plotlib = "0.5.1"
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
