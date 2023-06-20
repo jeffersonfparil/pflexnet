@@ -1,6 +1,6 @@
 # portho
 
-**Pseudo-orthonormal elastic-net-like regularisation**: attempting to correct for non-orthonormality after soft-thresholding
+**Pseudo-orthonormal elastic-net-like regularisation**: attempting to correct for non-orthonormality after soft-thresholding-based regularisation
 
 |**Build Status**|**License**|
 |:---:|:---:|
