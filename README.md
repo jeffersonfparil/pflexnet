@@ -1,10 +1,10 @@
-# portho
+# pflexnet
 
 **Pseudo-orthonormal elastic-net-like regularisation**: attempting to correct for non-orthonormality after soft-thresholding-based regularisation
 
 |**Build Status**|**License**|
 |:---:|:---:|
-| <a href="https://github.com/jeffersonfparil/portho/actions"><img src="https://github.com/jeffersonfparil/portho/actions/workflows/rust.yml/badge.svg"></a> | [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) |
+| <a href="https://github.com/jeffersonfparil/pflexnet/actions"><img src="https://github.com/jeffersonfparil/pflexnet/actions/workflows/rust.yml/badge.svg"></a> | [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) |
 
 Let the linear model be:
 
