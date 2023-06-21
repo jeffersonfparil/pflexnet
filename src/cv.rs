@@ -38,7 +38,7 @@ fn k_split(row_idx: &Vec<usize>, mut k: usize) -> io::Result<(Vec<usize>, usize,
     Ok((out, k, s))
 }
 
-fn pearsons_correlation(
+pub fn pearsons_correlation(
     x: &ArrayBase<ndarray::ViewRepr<&f64>, Dim<[usize; 1]>>,
     y: &ArrayBase<ndarray::ViewRepr<&f64>, Dim<[usize; 1]>>,
 ) -> io::Result<(f64, f64)> {
