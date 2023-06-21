@@ -6,7 +6,7 @@ use crate::cv::penalised_lambda_path_with_k_fold_cross_validation;
 use ndarray::prelude::*;
 use std::io;
 
-pub fn portho(
+pub fn pflexnet(
     x: &Array2<f64>,
     y: &Array2<f64>,
     row_idx: &Vec<usize>,
@@ -90,7 +90,7 @@ mod tests {
         let idx_training: Vec<usize> = (0..nt).collect();
         let idx_validation: Vec<usize> = (0..nv).collect();
         let (b_hat_penalised, alphas, lambdas) =
-            portho(&x, &y, &idx_training, alpha, false, lambda_step_size, r).unwrap();
+            pflexnet(&x, &y, &idx_training, alpha, false, lambda_step_size, r).unwrap();
         let idx_cols_x: Vec<usize> = (0..p).collect();
         let idx_rows_b = idx_cols_x.clone();
         let idx_cols_b: Vec<usize> = vec![0];
