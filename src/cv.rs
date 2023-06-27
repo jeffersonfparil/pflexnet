@@ -2,11 +2,17 @@ use crate::linalg::*;
 use crate::regularise::*;
 use ndarray::{prelude::*, Zip};
 use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{rngs::StdRng, SeedableRng};
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use std::io::{self, Error, ErrorKind};
 
-fn k_split(row_idx: &Vec<usize>, mut k: usize) -> io::Result<(Vec<usize>, usize, usize)> {
+/// Description ...
+/// Takes a random number generator from the caller function to allow runs to be exactly repeatable in the same machine
+fn k_split(
+    row_idx: &Vec<usize>,
+    mut k: usize,
+    rng: &mut StdRng,
+) -> io::Result<(Vec<usize>, usize, usize)> {
     let n = row_idx.len();
     if (k >= n) | (n <= 2) {
         return Err(Error::new(ErrorKind::Other, "The number of splits, i.e. k, needs to be less than the number of pools, n, and n > 2. We are aiming for fold sizes of 10 or greater."));
@@ -31,8 +37,7 @@ fn k_split(row_idx: &Vec<usize>, mut k: usize) -> io::Result<(Vec<usize>, usize,
         }
     }
     let mut shuffle: Vec<usize> = row_idx.clone();
-    let mut rng = thread_rng();
-    shuffle.shuffle(&mut rng);
+    shuffle.shuffle(rng);
     // println!("shuffle={:?}", shuffle);
     let mut out: Vec<usize> = Vec::new();
     for i in 0..n {
@@ -201,10 +206,14 @@ pub fn penalised_lambda_path_with_k_fold_cross_validation(
     )
     .unwrap();
 
-    let (_, nfolds, _s) = k_split(row_idx, 10).unwrap();
+    // Using a random number generator from the caller function to allow runs to be exactly repeatable in the same machine
+    // This enables the optimisation for alpha to work predictable well and better than either ridge-like or lasso-like, i.e. alpha=0 and alpha=1 when q is between monogenic and polygenic
+    let mut rng = StdRng::seed_from_u64(0);
+    let (_, nfolds, _s) = k_split(row_idx, 10, &mut rng).unwrap();
     let mut performances: Array4<f64> = Array4::from_elem((r, nfolds, a, l), f64::NAN);
     for rep in 0..r {
-        let (groupings, _, _) = k_split(row_idx, 10).unwrap();
+        let mut rng = StdRng::seed_from_u64(rep as u64);
+        let (groupings, _, _) = k_split(row_idx, 10, &mut rng).unwrap();
         // println!("groupings={:?}", groupings);
         for fold in 0..nfolds {
             let idx_validation: Vec<usize> = groupings
@@ -260,12 +269,19 @@ pub fn penalised_lambda_path_with_k_fold_cross_validation(
         }
     }
     // Find best alpha, lambda and beta on the full dataset
-    // let mean_error_across_reps_and_folds: Array3<f64> = performances
+    // let mean_error_across_reps_and_folds: Array2<f64> = performances
     //     .mean_axis(Axis(0))
     //     .unwrap()
     //     .mean_axis(Axis(0))
     //     .unwrap();
-    ///////////////////////////////////
+    // println!("#########################################");
+    // println!("mean_error_across_reps_and_folds={:?}", mean_error_across_reps_and_folds);
+    // println!("mean_error_across_reps_and_folds.min()={:?}", mean_error_across_reps_and_folds.fold(mean_error_across_reps_and_folds[(0, 0)], |min, &x| if x<min{x}else{min}));
+    // let mean_alphas = mean_error_across_reps_and_folds.mean_axis(Axis(1)).unwrap();
+    // let mean_lambdas = mean_error_across_reps_and_folds.mean_axis(Axis(0)).unwrap();
+    // println!("mean_alphas={:?}", mean_alphas);
+    // println!("mean_lambdas={:?}", mean_lambdas);
+    /////////////////////////////////
     // Account for overfit cross-validation folds, i.e. filter them out, or just use mode of the lambda and alphas?
     let mut alpha_path_counts: Array1<usize> = Array1::from_elem(l, 0);
     let mut lambda_path_counts: Array1<usize> = Array1::from_elem(l, 0);
@@ -304,8 +320,10 @@ pub fn penalised_lambda_path_with_k_fold_cross_validation(
             }
         }
     }
-    // Find the mode alpha and lambda
+    // println!("#########################################");
+    // println!("alpha_path_counts={:?}", alpha_path_counts);
     // println!("lambda_path_counts={:?}", lambda_path_counts);
+    // Find the mode alpha and lambda
     let alpha_max_count = alpha_path_counts.fold(0, |max, &x| if x > max { x } else { max });
     let (alpha_idx, _) = alpha_path_counts
         .indexed_iter()
@@ -342,7 +360,8 @@ mod tests {
         let row_idx: Vec<usize> = (0..10).collect();
         let k = 2;
         // Outputs
-        let (idx, k, s) = k_split(&row_idx, k).unwrap();
+        let mut rng = StdRng::seed_from_u64(0);
+        let (idx, k, s) = k_split(&row_idx, k, &mut rng).unwrap();
         // Assertions
         assert_eq!(idx.iter().fold(0, |sum, &x| sum + x), s);
         assert_eq!(k, 2);
