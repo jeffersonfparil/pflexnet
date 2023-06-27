@@ -132,10 +132,13 @@ pub fn pinv(x: &Array2<f64>) -> io::Result<Array2<f64>> {
     Ok(vt.t().dot(&s_inv.t()).dot(&u.t()))
 }
 
-pub fn ols(x: &Array2<f64>, y: &Array2<f64>, row_idx: &Vec<usize>) -> io::Result<Array2<f64>> {
+pub fn ols(x: &Array2<f64>, y: &Array1<f64>, row_idx: &Vec<usize>) -> io::Result<Array1<f64>> {
     let n = x.nrows();
     let p = x.ncols();
-    let k = y.ncols();
+    assert!(
+        n == y.len(),
+        "Please check genotype and phenotype input as the number of observations are incompatible."
+    );
     if x.column(0).sum() < n as f64 {
         return Err(Error::new(
             ErrorKind::Other,
@@ -144,7 +147,7 @@ pub fn ols(x: &Array2<f64>, y: &Array2<f64>, row_idx: &Vec<usize>) -> io::Result
     }
     let col_idx = &(0..p).collect::<Vec<usize>>();
     let new_row_idx = &(0..row_idx.len()).collect::<Vec<usize>>();
-    let new_col_idx = &(0..k).collect::<Vec<usize>>();
+    let new_col_idx = &(0..1).collect::<Vec<usize>>();
     let b_hat: Array2<f64> = if n < p {
         multiply_views_xx(
             &multiply_views_xtx(
@@ -157,7 +160,7 @@ pub fn ols(x: &Array2<f64>, y: &Array2<f64>, row_idx: &Vec<usize>) -> io::Result
                 new_row_idx,
             )
             .unwrap(),
-            y,
+            &(y.to_owned().into_shape((n, 1)).unwrap()),
             col_idx,
             new_row_idx,
             row_idx,
@@ -176,7 +179,7 @@ pub fn ols(x: &Array2<f64>, y: &Array2<f64>, row_idx: &Vec<usize>) -> io::Result
                 col_idx,
             )
             .unwrap(),
-            y,
+            &y.to_owned().into_shape((n, 1)).unwrap(),
             col_idx,
             new_row_idx,
             row_idx,
@@ -184,17 +187,16 @@ pub fn ols(x: &Array2<f64>, y: &Array2<f64>, row_idx: &Vec<usize>) -> io::Result
         )
         .unwrap()
     };
-    Ok(b_hat)
+    Ok(b_hat.column(0).to_owned())
 }
 
 pub fn ols_iterative_with_kinship_pca_covariate(
     x: &Array2<f64>,
-    y: &Array2<f64>,
+    y: &Array1<f64>,
     row_idx: &Vec<usize>,
-) -> io::Result<Array2<f64>> {
+) -> io::Result<Array1<f64>> {
     let n = row_idx.len();
     let p = x.ncols();
-    let k = y.ncols();
     if x.column(0).sum() < x.nrows() as f64 {
         return Err(Error::new(
             ErrorKind::Other,
@@ -230,46 +232,26 @@ pub fn ols_iterative_with_kinship_pca_covariate(
     .unwrap();
     let (_eigen_values, eigen_vectors): (Array1<_>, Array2<_>) = xxt.eig().unwrap();
 
-    let mut b_hat: Array2<f64> = Array2::from_elem((p, k), f64::NAN);
-    let mut y_sub: Array2<f64> = Array2::from_elem((n, k), f64::NAN);
+    let mut b_hat: Array1<f64> = Array1::from_elem(p, f64::NAN);
+    let mut y_sub: Array1<f64> = Array1::from_elem(n, f64::NAN);
     for i in 0..n {
-        for j in 0..k {
-            y_sub[(i, j)] = y[(row_idx[i], j)];
-        }
+        y_sub[i] = y[row_idx[i]];
     }
-    let y_sub_means: Array1<f64> = y_sub.mean_axis(Axis(0)).unwrap();
-    let vec_j: Array2<usize> = Array2::from_shape_vec(
-        (p, k),
-        (0..p)
-            .flat_map(|x| std::iter::repeat(x).take(k))
-            .collect::<Vec<usize>>(),
-    )
-    .unwrap();
-    let vec_j_: Array2<usize> = Array2::from_shape_vec(
-        (k, p),
-        (0..k)
-            .flat_map(|x| std::iter::repeat(x).take(p))
-            .collect::<Vec<usize>>(),
-    )
-    .unwrap()
-    .reversed_axes();
+    let y_sub_mean: f64 = y_sub.mean().unwrap();
+    let vec_j: Array1<usize> = Array1::from_shape_vec(p, (0..p).collect::<Vec<usize>>()).unwrap();
 
-    Zip::from(&mut b_hat)
-        .and(&vec_j)
-        .and(&vec_j_)
-        .par_for_each(|b, &j, &j_| {
-            if j == 0 {
-                *b = y_sub_means[j_];
-                // b_hat[(j,j_)] = y_sub_means[j_];
-            } else {
-                let mut x_sub: Array2<f64> = Array2::ones((n, 3)); // intercept, 1st eigenvector, and the jth locus
-                for i in 0..n {
-                    x_sub[(i, 1)] = eigen_vectors[(i, 0)].re; // extract the eigenvector value's real number component
-                    x_sub[(i, 2)] = x[(row_idx[i], j)]; // use the row_idx and add 1 to the column indexes to account for the intercept in the input x
-                }
-                *b = x_sub.least_squares(&y_sub.column(j_)).unwrap().solution[2];
+    Zip::from(&mut b_hat).and(&vec_j).par_for_each(|b, &j| {
+        if j == 0 {
+            *b = y_sub_mean;
+        } else {
+            let mut x_sub: Array2<f64> = Array2::ones((n, 3)); // intercept, 1st eigenvector, and the jth locus
+            for i in 0..n {
+                x_sub[(i, 1)] = eigen_vectors[(i, 0)].re; // extract the eigenvector value's real number component
+                x_sub[(i, 2)] = x[(row_idx[i], j)]; // use the row_idx and add 1 to the column indexes to account for the intercept in the input x
             }
-        });
+            *b = x_sub.least_squares(&y_sub).unwrap().solution[2]; // uing ndarray-linalg's built-in OLS
+        }
+    });
     Ok(b_hat)
 }
 
@@ -315,8 +297,8 @@ mod tests {
         let x_tall: Array2<f64> =
             concatenate(Axis(1), &[intercept.view(), frequencies_tall.view()]).unwrap();
 
-        let y: Array2<f64> =
-            Array2::from_shape_vec((5, 1), (1..6).map(|x| x as f64 / 5.0).collect::<Vec<f64>>())
+        let y: Array1<f64> =
+            Array1::from_shape_vec(5, (1..6).map(|x| x as f64 / 5.0).collect::<Vec<f64>>())
                 .unwrap();
 
         // Outputs

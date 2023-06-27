@@ -8,19 +8,19 @@ use std::io;
 
 pub fn pflexnet(
     x: &Array2<f64>,
-    y: &Array2<f64>,
+    y: &Array1<f64>,
     row_idx: &Vec<usize>,
     alpha: f64,
-    iterative: bool,
+    kinship_covar: bool,
     lambda_step_size: f64,
     r: usize,
-) -> io::Result<(Array2<f64>, Vec<f64>, Vec<f64>)> {
+) -> io::Result<(Array1<f64>, f64, f64)> {
     penalised_lambda_path_with_k_fold_cross_validation(
         x,
         y,
         row_idx,
         alpha,
-        iterative,
+        kinship_covar,
         lambda_step_size,
         r,
     )
@@ -32,9 +32,10 @@ mod tests {
     use super::*;
     use crate::cv::*;
     use crate::linalg::*;
-    use rand::distributions::*;
+    use rand::{distributions::*, rngs::StdRng, SeedableRng};
     #[test]
     fn test_lib() {
+        let mut rng = StdRng::seed_from_u64(42);
         let nt = 90;
         let nv = 10;
         let n = nt + nv;
@@ -46,7 +47,6 @@ mod tests {
         let p = 1_000;
         let q = 2;
         let h2 = 0.75;
-        let mut rng = rand::thread_rng();
         let dist_unif = statrs::distribution::Uniform::new(0.0, 1.0).unwrap();
         // Simulate allele frequencies
         let mut x: Array2<f64> = Array2::ones((n, p + 1));
@@ -86,46 +86,48 @@ mod tests {
                 .collect::<Vec<f64>>(),
         )
         .unwrap();
-        let y = &xb + e;
+        let y: Array1<f64> = (&xb + e).column(0).to_owned();
         let idx_training: Vec<usize> = (0..nt).collect();
-        let idx_validation: Vec<usize> = (0..nv).collect();
-        let (b_hat_penalised, alphas, lambdas) =
+        let idx_validation: Vec<usize> = (nt..n).collect();
+        let (b_hat_penalised, alpha, lambda) =
             pflexnet(&x, &y, &idx_training, alpha, false, lambda_step_size, r).unwrap();
-        let idx_cols_x: Vec<usize> = (0..p).collect();
+        let idx_cols_x: Vec<usize> = (0..p + 1).collect();
         let idx_rows_b = idx_cols_x.clone();
         let idx_cols_b: Vec<usize> = vec![0];
-        let y_hat = multiply_views_xx(
+        let y_hat: Array1<f64> = multiply_views_xx(
             &x,
-            &b_hat_penalised,
+            &b_hat_penalised.to_owned().into_shape((p + 1, 1)).unwrap(),
             &idx_validation,
             &idx_cols_x,
             &idx_rows_b,
             &idx_cols_b,
         )
+        .unwrap()
+        .into_shape(nv)
         .unwrap();
-        let y_true: Array2<f64> = Array2::from_shape_vec(
-            (nv, 1),
-            idx_validation
-                .iter()
-                .map(|&i| y[(i, 0)])
-                .collect::<Vec<f64>>(),
+        let y_true: Array1<f64> = Array1::from_shape_vec(
+            nv,
+            idx_validation.iter().map(|&i| y[i]).collect::<Vec<f64>>(),
         )
         .unwrap();
-        assert_eq!(b_hat_penalised[(0, 0)].ceil(), 1.0);
-        assert_eq!(alphas[0].round(), alpha.abs());
-        assert_eq!(lambdas[0].ceil(), 1.0);
-        println!("alphas={:?}; lambdas={:?}", alphas, lambdas);
-        assert_eq!(
-            pearsons_correlation(&y_true.column(0), &y_hat.column(0))
-                .unwrap()
-                .0
-                .ceil(),
-            1.0
-        );
+        println!("y_true={:?}", y_true);
+        println!("y_hat={:?}", y_hat);
+        println!("b_hat_penalised={:?}", b_hat_penalised);
+        println!("alpha={:?}; lambda={:?}", alpha, lambda);
         println!(
             "rho and p-value={:?}",
-            pearsons_correlation(&y_true.column(0), &y_hat.column(0)).unwrap()
+            pearsons_correlation(&y_true, &y_hat).unwrap()
         );
-        // assert_eq!(0, 1);
+        println!("mae={:?}", mean_absolute_error(&y_true, &y_hat).unwrap());
+        println!(
+            "rmse={:?}",
+            root_mean_squared_error(&y_true, &y_hat).unwrap()
+        );
+        assert_eq!(0, 1);
+
+        assert_eq!(b_hat_penalised[0].ceil(), 1.0);
+        assert_eq!(alpha.round(), alpha.abs());
+        assert_eq!(lambda.ceil(), 1.0);
+        assert_eq!(pearsons_correlation(&y_true, &y_hat).unwrap().0.ceil(), 1.0);
     }
 }
