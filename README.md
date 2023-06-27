@@ -89,7 +89,7 @@ i.e. using a set of $\lambda$, divide the $n$ observations into $k$ groups or fo
 (3) reshuffle, generate a new grouping, and repeat for k-fold cross-validation, 
 (4) repeat the k-fold cross-validation $r$ times.
 
-On the otherhand, a closed-form solution for Lasso only exists if $X$ is orthonormal ($X^{T} = X^{-1}$ hence $\hat\beta = X^{T}y$), i.e.
+On the otherhand, a closed-form solution for Lasso only exists if $X$ is orthonormal ($X^{T} = X^{-1}$ and $\|\|X\|\|=1$ hence $\hat\beta = X^{T}y$), i.e.
 
 $$
 \hat\beta_j = sign(\hat\beta^{OLS}_j) max(\{ \hat\beta^{OLS}_j - \lambda, 0 \})
