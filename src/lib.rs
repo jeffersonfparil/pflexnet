@@ -40,9 +40,9 @@ mod tests {
         let nv = 10;
         let n = nt + nv;
         let r = 10;
-        // let alpha = 1.0; // L1 norm
+        let alpha = 1.0; // L1 norm
         // let alpha = 0.0; // L2 norm
-        let alpha = -1.0; // elastic norm (i.e. any `alpha < 0.0`)
+        // let alpha = -1.0; // elastic norm (i.e. any `alpha < 0.0`)
         let lambda_step_size = 0.1;
         let p = 1_000;
         let q = 2;
@@ -123,11 +123,11 @@ mod tests {
             "rmse={:?}",
             root_mean_squared_error(&y_true, &y_hat).unwrap()
         );
-        assert_eq!(0, 1);
+        // assert_eq!(0, 1);
 
         assert_eq!(b_hat_penalised[0].ceil(), 1.0);
-        assert_eq!(alpha.round(), alpha.abs());
-        assert_eq!(lambda.ceil(), 1.0);
+        assert_eq!(alpha.round(), 1.0);
+        assert_eq!(lambda.round(), 1.0);
         assert_eq!(pearsons_correlation(&y_true, &y_hat).unwrap().0.ceil(), 1.0);
     }
 }

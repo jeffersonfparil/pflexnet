@@ -1,7 +1,8 @@
 use crate::linalg::*;
 use crate::regularise::*;
 use ndarray::{prelude::*, Zip};
-use rand::{Rng, StdRng};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use std::io::{self, Error, ErrorKind};
 
@@ -29,12 +30,10 @@ fn k_split(row_idx: &Vec<usize>, mut k: usize) -> io::Result<(Vec<usize>, usize,
             g.push(k);
         }
     }
-    // let mut rng = rand::thread_rng();
-    // let shuffle = row_idx.iter().map(|&x| x).choose_multiple(&mut rng, n);
-    let mut rng = StdRng::new().unwrap();
-    let mut shuffle = row_idx.clone();
-    rand::thread_rng().shuffle(&mut shuffle);
-    println!("shuffle={:?}", shuffle);
+    let mut shuffle: Vec<usize> = row_idx.clone();
+    let mut rng = thread_rng();
+    shuffle.shuffle(&mut rng);
+    // println!("shuffle={:?}", shuffle);
     let mut out: Vec<usize> = Vec::new();
     for i in 0..n {
         out.push(g[shuffle[i]]);
@@ -206,7 +205,7 @@ pub fn penalised_lambda_path_with_k_fold_cross_validation(
     let mut performances: Array4<f64> = Array4::from_elem((r, nfolds, a, l), f64::NAN);
     for rep in 0..r {
         let (groupings, _, _) = k_split(row_idx, 10).unwrap();
-        println!("groupings={:?}", groupings);
+        // println!("groupings={:?}", groupings);
         for fold in 0..nfolds {
             let idx_validation: Vec<usize> = groupings
                 .iter()
@@ -285,8 +284,8 @@ pub fn penalised_lambda_path_with_k_fold_cross_validation(
                 }
             },
         );
-        println!("#########################################");
-        println!("performances.slice(s![rep, .., .., ..])={:?}", performances.slice(s![rep, 0, 0, 0]));
+        // println!("#########################################");
+        // println!("performances.slice(s![rep, .., .., ..])={:?}", performances.slice(s![rep, 0, 0, 0]));
         // println!("min_error={:?}", min_error);
         // println!("mean_error_per_rep_across_folds={:?}", mean_error_per_rep_across_folds);
         // println!("alpha_path_counts={:?}", alpha_path_counts);
@@ -345,7 +344,7 @@ mod tests {
         // Outputs
         let (idx, k, s) = k_split(&row_idx, k).unwrap();
         // Assertions
-        assert_eq!(idx, vec![0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
+        assert_eq!(idx.iter().fold(0, |sum, &x| sum + x), s);
         assert_eq!(k, 2);
         assert_eq!(s, 5);
     }
